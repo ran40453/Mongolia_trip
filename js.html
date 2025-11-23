@@ -1,0 +1,408 @@
+<!-- js.html -->
+<script>
+const state = {
+  events: INITIAL_DATA.events || [],
+  landmarks: INITIAL_DATA.landmarks || [],
+  flights: INITIAL_DATA.flights || [],
+  packing: INITIAL_DATA.packing || [],
+  expenses: INITIAL_DATA.expenses || [],
+  currentTab: 'itinerary',
+  itineraryView: 'list', // list | timeline
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  setupTabbar();
+  setupItineraryViewSwitch();
+  setupEventSheet();
+  setupExpenseForm();
+
+  renderAll();
+});
+
+/* Tabbar 切換 */
+function setupTabbar() {
+  const tabButtons = document.querySelectorAll('.tabbar-item');
+  tabButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tab = btn.dataset.tab;
+      state.currentTab = tab;
+      // tabbar visually
+      tabButtons.forEach(b => b.classList.toggle('active', b === btn));
+      // page switch
+      document.querySelectorAll('.tab-page').forEach(page => {
+        page.classList.toggle('active', page.id === `tab-${tab}`);
+      });
+    });
+  });
+}
+
+/* 行程列表 / 時間軸 切換 */
+function setupItineraryViewSwitch() {
+  const segBtns = document.querySelectorAll('.seg-btn');
+  segBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const view = btn.dataset.view;
+      state.itineraryView = view;
+      segBtns.forEach(b => b.classList.toggle('active', b === btn));
+      document.querySelectorAll('.itinerary-view').forEach(v => {
+        v.classList.remove('active');
+      });
+      if (view === 'list') {
+        document.getElementById('itinerary-list-view').classList.add('active');
+      } else {
+        document.getElementById('itinerary-timeline-view').classList.add('active');
+      }
+      renderItinerary();
+    });
+  });
+}
+
+/* 行程編輯 bottom sheet */
+function setupEventSheet() {
+  const sheet = document.getElementById('event-sheet');
+  const closeBtn = document.getElementById('event-sheet-close');
+  const backdrop = sheet.querySelector('.sheet-backdrop');
+  const saveBtn = document.getElementById('event-save-btn');
+
+  closeBtn.addEventListener('click', () => sheet.classList.remove('open'));
+  backdrop.addEventListener('click', () => sheet.classList.remove('open'));
+
+  saveBtn.addEventListener('click', () => {
+    const data = {
+      rowIndex: Number(document.getElementById('event-rowIndex').value),
+      time: document.getElementById('event-time').value,
+      title: document.getElementById('event-title').value,
+      place: document.getElementById('event-place').value,
+      moveTime: document.getElementById('event-moveTime').value,
+      note: document.getElementById('event-note').value,
+    };
+    google.script.run
+      .withSuccessHandler(() => {
+        // 更新 local state
+        const idx = state.events.findIndex(ev => ev.rowIndex === data.rowIndex);
+        if (idx >= 0) {
+          state.events[idx] = { ...state.events[idx], ...data };
+          renderItinerary();
+        }
+        sheet.classList.remove('open');
+      })
+      .withFailureHandler(err => {
+        alert('更新失敗：' + err.message);
+      })
+      .updateEvent(data);
+  });
+}
+
+function openEventSheet(event) {
+  const sheet = document.getElementById('event-sheet');
+  document.getElementById('event-rowIndex').value = event.rowIndex;
+  document.getElementById('event-time').value = event.time || '';
+  document.getElementById('event-title').value = event.title || '';
+  document.getElementById('event-place').value = event.place || '';
+  document.getElementById('event-moveTime').value = event.moveTime || '';
+  document.getElementById('event-note').value = event.note || '';
+  sheet.classList.add('open');
+}
+
+/* 花費表單 */
+function setupExpenseForm() {
+  const btn = document.getElementById('exp-add-btn');
+  if (!btn) return;
+
+  btn.addEventListener('click', () => {
+    const payload = {
+      date: document.getElementById('exp-date').value,
+      category: document.getElementById('exp-category').value,
+      desc: document.getElementById('exp-desc').value,
+      amount: Number(document.getElementById('exp-amount').value),
+      currency: document.getElementById('exp-currency').value || 'CNY',
+      paid_by: document.getElementById('exp-paidby').value,
+      memo: document.getElementById('exp-memo').value,
+    };
+    if (!payload.date || !payload.category || !payload.amount) {
+      alert('日期、類別、金額必填');
+      return;
+    }
+    google.script.run
+      .withSuccessHandler(() => {
+        state.expenses.push({
+          rowIndex: null,
+          date: payload.date,
+          category: payload.category,
+          desc: payload.desc,
+          amount: payload.amount,
+          currency: payload.currency,
+          paidBy: payload.paid_by,
+          memo: payload.memo,
+        });
+        renderExpenses();
+        // 清空表單
+        document.getElementById('exp-desc').value = '';
+        document.getElementById('exp-amount').value = '';
+        document.getElementById('exp-memo').value = '';
+      })
+      .withFailureHandler(err => alert('新增失敗：' + err.message))
+      .addExpense(payload);
+  });
+}
+
+/* 渲染總入口 */
+function renderAll() {
+  renderItinerary();
+  renderFlights();
+  renderLandmarks();
+  renderPacking();
+  renderExpenses();
+}
+
+/* 行程渲染 */
+function renderItinerary() {
+  const events = [...state.events].sort((a, b) => {
+    if (a.dayIndex !== b.dayIndex) return a.dayIndex - b.dayIndex;
+    return a.seq - b.seq;
+  });
+
+  // 按 dayIndex 分組
+  const groups = {};
+  events.forEach(ev => {
+    const key = ev.dayIndex || 0;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(ev);
+  });
+
+  const listRoot = document.getElementById('itinerary-list-view');
+  const timelineRoot = document.getElementById('itinerary-timeline-view');
+  if (!listRoot || !timelineRoot) return;
+
+  // 列表視圖
+  listRoot.innerHTML = '';
+  Object.keys(groups).sort((a, b) => a - b).forEach(dayIdx => {
+    const dayEvents = groups[dayIdx];
+    if (!dayEvents.length) return;
+    const dayHeader = dayEvents[0].dayTitle || `DAY ${dayIdx}`;
+    const dateLabel = dayEvents[0].dateLabel || '';
+
+    const groupDiv = document.createElement('div');
+    groupDiv.className = 'itinerary-day-group';
+
+    const headerDiv = document.createElement('div');
+    headerDiv.className = 'itinerary-day-header';
+    headerDiv.innerHTML = `
+      <div class="itinerary-day-title">${dayHeader}</div>
+      <div class="itinerary-day-date">${dateLabel}</div>
+    `;
+    groupDiv.appendChild(headerDiv);
+
+    dayEvents.forEach(ev => {
+      const evDiv = document.createElement('div');
+      evDiv.className = 'itinerary-event';
+      evDiv.innerHTML = `
+        <div class="itinerary-event-time">${ev.time || ''}</div>
+        <div class="itinerary-event-main">
+          <div class="itinerary-event-title">${ev.title || ''}</div>
+          <div class="itinerary-event-place">${ev.place || ''}</div>
+          ${ev.note ? `<div class="itinerary-event-note">${ev.note}</div>` : ''}
+        </div>
+      `;
+      evDiv.addEventListener('click', () => openEventSheet(ev));
+      groupDiv.appendChild(evDiv);
+    });
+
+    listRoot.appendChild(groupDiv);
+  });
+
+  // 時間軸視圖（簡化版：不做真正比例，只做視覺條）
+  timelineRoot.innerHTML = '';
+  Object.keys(groups).sort((a, b) => a - b).forEach(dayIdx => {
+    const dayEvents = groups[dayIdx];
+    if (!dayEvents.length) return;
+    const dayHeader = dayEvents[0].dayTitle || `DAY ${dayIdx}`;
+
+    const card = document.createElement('div');
+    card.className = 'card';
+
+    card.innerHTML = `
+      <div class="card-header-row">
+        <div class="card-title">${dayHeader}</div>
+      </div>
+      <div class="timeline-container"></div>
+    `;
+
+    const container = card.querySelector('.timeline-container');
+
+    dayEvents.forEach(ev => {
+      const row = document.createElement('div');
+      row.className = 'timeline-row';
+
+      const timeLabel = document.createElement('div');
+      timeLabel.className = 'timeline-time';
+      timeLabel.textContent = ev.time || '';
+
+      const barWrap = document.createElement('div');
+      barWrap.className = 'timeline-bar-wrap';
+
+      const bar = document.createElement('div');
+      bar.className = 'timeline-bar';
+      // 簡單依 seq 略微變化寬度，視覺上有差異就好
+      const width = 30 + (ev.seq || 1) * 8;
+      bar.style.width = Math.min(width, 100) + '%';
+      barWrap.appendChild(bar);
+
+      row.appendChild(timeLabel);
+      row.appendChild(barWrap);
+      container.appendChild(row);
+    });
+
+    timelineRoot.appendChild(card);
+  });
+}
+
+/* 航班 */
+function renderFlights() {
+  const root = document.getElementById('flights-list');
+  if (!root) return;
+  root.innerHTML = '';
+  const flights = state.flights || [];
+  flights.forEach(f => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="card-header-row">
+        <div>
+          <div class="card-title">${f.segment || ''}</div>
+          <div class="card-subtitle">${f.date || ''}</div>
+        </div>
+        <div class="chip chip-accent">${f.flightNo || ''}</div>
+      </div>
+      <div class="chip-row">
+        <div class="chip">時間：${f.time || ''}</div>
+        ${f.note ? `<div class="chip">${f.note}</div>` : ''}
+      </div>
+    `;
+    root.appendChild(card);
+  });
+}
+
+/* 地標 */
+function renderLandmarks() {
+  const root = document.getElementById('landmarks-list');
+  if (!root) return;
+  root.innerHTML = '';
+  const items = state.landmarks || [];
+  items.forEach(lm => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="card-header-row">
+        <div>
+          <div class="card-title">${lm.name || ''}</div>
+          <div class="card-subtitle">${lm.type || ''}</div>
+        </div>
+      </div>
+      <div class="chip-row">
+        ${
+          lm.lat && lm.lng
+            ? `<div class="chip">座標：${lm.lat}, ${lm.lng}</div>`
+            : ''
+        }
+        ${lm.memo ? `<div class="chip">${lm.memo}</div>` : ''}
+      </div>
+    `;
+    // 點卡片可以開地圖
+    if (lm.lat && lm.lng) {
+      card.style.cursor = 'pointer';
+      card.addEventListener('click', () => {
+        const url = `https://maps.google.com/?q=${lm.lat},${lm.lng}`;
+        window.open(url, '_blank');
+      });
+    }
+    root.appendChild(card);
+  });
+}
+
+/* 物品清單 */
+function renderPacking() {
+  const root = document.getElementById('packing-list');
+  if (!root) return;
+  root.innerHTML = '';
+  const items = state.packing || [];
+  items.forEach(item => {
+    const card = document.createElement('div');
+    card.className = 'card';
+
+    const checked = String(item.packed || '').toLowerCase() === 'yes' || item.packed === true;
+
+    card.innerHTML = `
+      <div class="packing-item-header">
+        <div>
+          <div class="packing-name">${item.item || ''}</div>
+          <div class="packing-category">${item.category || ''}</div>
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--text-soft);margin-right:6px;">已打包</label>
+          <input type="checkbox" ${checked ? 'checked' : ''} />
+        </div>
+      </div>
+      ${item.memo ? `<div class="itinerary-event-note">${item.memo}</div>` : ''}
+    `;
+
+    const checkbox = card.querySelector('input[type="checkbox"]');
+    checkbox.addEventListener('change', () => {
+      const packed = checkbox.checked ? 'yes' : 'no';
+      google.script.run
+        .withSuccessHandler(() => {
+          item.packed = packed;
+        })
+        .withFailureHandler(err => {
+          alert('更新失敗：' + err.message);
+          checkbox.checked = !checkbox.checked;
+        })
+        .updatePackingItem({ rowIndex: item.rowIndex, packed });
+    });
+
+    root.appendChild(card);
+  });
+}
+
+/* 花費 */
+function renderExpenses() {
+  const root = document.getElementById('expenses-list');
+  const summary = document.getElementById('expenses-summary');
+  if (!root || !summary) return;
+
+  const list = state.expenses || [];
+  root.innerHTML = '';
+
+  // 簡單總結：依幣別合計
+  const sumByCurrency = {};
+  list.forEach(e => {
+    const c = e.currency || e.currency === '' ? e.currency : 'CNY';
+    const amt = Number(e.amount) || 0;
+    sumByCurrency[c] = (sumByCurrency[c] || 0) + amt;
+  });
+  const sumText = Object.keys(sumByCurrency)
+    .map(k => `${k} ${sumByCurrency[k].toFixed(0)}`)
+    .join(' / ');
+  summary.textContent = sumText ? `目前合計：${sumText}` : '';
+
+  list.forEach(e => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="card-header-row">
+        <div>
+          <div class="card-title">${e.desc || ''}</div>
+          <div class="card-subtitle">${e.date || ''}</div>
+        </div>
+        <div class="chip chip-accent">${(e.currency || 'CNY') + ' ' + (e.amount || '')}</div>
+      </div>
+      <div class="chip-row">
+        ${e.category ? `<div class="chip">${e.category}</div>` : ''}
+        ${e.paidBy ? `<div class="chip">by ${e.paidBy}</div>` : ''}
+        ${e.memo ? `<div class="chip">${e.memo}</div>` : ''}
+      </div>
+    `;
+    root.appendChild(card);
+  });
+}
+</script>

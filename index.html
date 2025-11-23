@@ -1,0 +1,157 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>內蒙行程</title>
+    <?!= include('css'); ?>
+  </head>
+  <body>
+    <div id="app" class="app-root">
+      <header class="app-header">
+        <div class="header-title-group">
+          <div class="header-subtitle">Inner Mongolia Trip</div>
+          <h1 class="header-title">內蒙古 · 海拉爾</h1>
+          <div class="header-meta">2025-11-25 ～ 2025-11-30</div>
+        </div>
+      </header>
+
+      <main class="app-main">
+        <!-- 行程分頁 -->
+        <section id="tab-itinerary" class="tab-page active">
+          <div class="segmented-control">
+            <button class="seg-btn active" data-view="list">列表</button>
+            <button class="seg-btn" data-view="timeline">時間軸</button>
+          </div>
+
+          <div id="itinerary-list-view" class="itinerary-view active"></div>
+          <div id="itinerary-timeline-view" class="itinerary-view"></div>
+        </section>
+
+        <!-- 航班分頁 -->
+        <section id="tab-flights" class="tab-page">
+          <div id="flights-list" class="card-list"></div>
+        </section>
+
+        <!-- 地標分頁 -->
+        <section id="tab-landmarks" class="tab-page">
+          <div id="landmarks-list" class="card-list"></div>
+        </section>
+
+        <!-- 物品清單分頁 -->
+        <section id="tab-packing" class="tab-page">
+          <div id="packing-list" class="card-list"></div>
+        </section>
+
+        <!-- 花費分頁 -->
+        <section id="tab-expenses" class="tab-page">
+          <div id="expenses-summary" class="summary-row"></div>
+          <div id="expenses-list" class="card-list"></div>
+
+          <div class="expense-form-card">
+            <div class="expense-form-title">新增花費</div>
+            <div class="form-row">
+              <label>日期</label>
+              <input type="date" id="exp-date" />
+            </div>
+            <div class="form-row">
+              <label>類別</label>
+              <input type="text" id="exp-category" placeholder="餐飲 / 交通 / 景點" />
+            </div>
+            <div class="form-row">
+              <label>說明</label>
+              <input type="text" id="exp-desc" placeholder="例如：晚餐、計程車" />
+            </div>
+            <div class="form-row">
+              <label>金額</label>
+              <input type="number" id="exp-amount" inputmode="decimal" />
+            </div>
+            <div class="form-row">
+              <label>幣別</label>
+              <input type="text" id="exp-currency" value="CNY" />
+            </div>
+            <div class="form-row">
+              <label>付款人</label>
+              <input type="text" id="exp-paidby" value="Cody" />
+            </div>
+            <div class="form-row">
+              <label>備註</label>
+              <input type="text" id="exp-memo" />
+            </div>
+            <button id="exp-add-btn" class="primary-btn">加入紀錄</button>
+          </div>
+        </section>
+      </main>
+
+      <!-- 下方 tabbar -->
+      <nav class="tabbar">
+        <button class="tabbar-item active" data-tab="itinerary">
+          <span class="tabbar-icon">📅</span>
+          <span class="tabbar-label">行程</span>
+        </button>
+        <button class="tabbar-item" data-tab="flights">
+          <span class="tabbar-icon">✈️</span>
+          <span class="tabbar-label">航班</span>
+        </button>
+        <button class="tabbar-item" data-tab="landmarks">
+          <span class="tabbar-icon">📍</span>
+          <span class="tabbar-label">地標</span>
+        </button>
+        <button class="tabbar-item" data-tab="packing">
+          <span class="tabbar-icon">🎒</span>
+          <span class="tabbar-label">物品</span>
+        </button>
+        <button class="tabbar-item" data-tab="expenses">
+          <span class="tabbar-icon">¥</span>
+          <span class="tabbar-label">花費</span>
+        </button>
+      </nav>
+
+      <!-- 行程編輯 bottom sheet -->
+      <div id="event-sheet" class="bottom-sheet">
+        <div class="sheet-backdrop"></div>
+        <div class="sheet-panel">
+          <div class="sheet-header">
+            <div class="sheet-grabber"></div>
+            <div class="sheet-title">編輯行程</div>
+            <button id="event-sheet-close" class="sheet-close-btn">完成</button>
+          </div>
+          <div class="sheet-body">
+            <input type="hidden" id="event-rowIndex" />
+            <div class="form-row">
+              <label>時間</label>
+              <input type="text" id="event-time" />
+            </div>
+            <div class="form-row">
+              <label>項目</label>
+              <input type="text" id="event-title" />
+            </div>
+            <div class="form-row">
+              <label>地點</label>
+              <input type="text" id="event-place" />
+            </div>
+            <div class="form-row">
+              <label>移動時間</label>
+              <input type="text" id="event-moveTime" />
+            </div>
+            <div class="form-row">
+              <label>備註</label>
+              <textarea id="event-note" rows="3"></textarea>
+            </div>
+            <button id="event-save-btn" class="primary-btn">儲存到行程表</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // 把後端塞進來的 initialData 丟進 JS
+      const INITIAL_DATA = <?!= JSON.stringify(initialData) ?>;
+    </script>
+    <?!= include('js'); ?>
+  </body>
+</html>

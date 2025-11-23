@@ -1,0 +1,440 @@
+<!-- css.html -->
+<style>
+:root {
+  --bg: #0b0c10;
+  --bg-elevated: rgba(20, 22, 30, 0.9);
+  --bg-card: rgba(32, 34, 44, 0.9);
+  --accent: #4da3ff;
+  --accent-soft: rgba(77,163,255,0.2);
+  --accent-strong: #4da3ff;
+  --border-subtle: rgba(255,255,255,0.06);
+  --text-main: #f8f8ff;
+  --text-muted: #9da3b5;
+  --text-soft: #6e7384;
+  --danger: #ff4f6a;
+  --radius-xl: 20px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+  --shadow-soft: 0 18px 40px rgba(0,0,0,0.45);
+  --blur-strong: 22px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: radial-gradient(circle at top, #22283b 0, #070814 45%, #020308 100%);
+  color: var(--text-main);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  min-height: 100vh;
+}
+
+.app-root {
+  min-height: 100vh;
+  max-width: 480px;
+  margin: 0 auto;
+  padding-bottom: 80px; /* tabbar 空間 */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.app-header {
+  padding: 16px 18px 8px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  backdrop-filter: blur(22px);
+  background: radial-gradient(circle at top, rgba(75,119,255,0.16), transparent 55%) rgba(2,3,12,0.86);
+}
+
+.header-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.header-subtitle {
+  font-size: 11px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+
+.header-title {
+  font-size: 22px;
+  margin: 0;
+  font-weight: 700;
+}
+
+.header-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Main */
+.app-main {
+  flex: 1;
+  padding: 8px 12px 12px;
+}
+
+/* Tabs pages */
+.tab-page {
+  display: none;
+}
+
+.tab-page.active {
+  display: block;
+}
+
+/* Segmented control */
+.segmented-control {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgba(17,20,31,0.85);
+  border: 1px solid rgba(255,255,255,0.04);
+  margin-bottom: 10px;
+}
+
+.seg-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-soft);
+  font-size: 12px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  min-width: 70px;
+}
+
+.seg-btn.active {
+  background: linear-gradient(135deg, var(--accent), #73d5ff);
+  color: #05060b;
+}
+
+/* Cards */
+.card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-soft);
+  padding: 10px 12px;
+}
+
+.card-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.card-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.card-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.chip {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.07);
+  background: rgba(13,15,24,0.9);
+  color: var(--text-muted);
+}
+
+.chip-accent {
+  background: var(--accent-soft);
+  border-color: rgba(77,163,255,0.5);
+  color: var(--accent-strong);
+}
+
+/* Itinerary list view */
+.itinerary-day-group {
+  margin-bottom: 14px;
+}
+
+.itinerary-day-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0 4px 4px;
+}
+
+.itinerary-day-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.itinerary-day-date {
+  font-size: 11px;
+  color: var(--text-soft);
+}
+
+.itinerary-event {
+  display: flex;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: rgba(17,19,28,0.98);
+  border: 1px solid rgba(255,255,255,0.04);
+  margin-bottom: 6px;
+}
+
+.itinerary-event-time {
+  font-size: 11px;
+  color: var(--text-soft);
+  width: 70px;
+  flex-shrink: 0;
+}
+
+.itinerary-event-main {
+  flex: 1;
+}
+
+.itinerary-event-title {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.itinerary-event-place {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.itinerary-event-note {
+  font-size: 11px;
+  color: var(--text-soft);
+  margin-top: 2px;
+}
+
+/* Timeline view (簡化甘特風格) */
+.timeline-container {
+  padding: 6px 2px;
+}
+
+.timeline-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.timeline-time {
+  width: 60px;
+  font-size: 11px;
+  color: var(--text-soft);
+}
+
+.timeline-bar-wrap {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(20,25,40,0.9);
+  overflow: hidden;
+}
+
+.timeline-bar {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), #9ce5ff);
+}
+
+/* Bottom tabbar */
+.tabbar {
+  position: fixed;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+  padding: 6px 14px;
+  z-index: 20;
+}
+
+.tabbar-inner {
+  display: flex;
+}
+
+.tabbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(8,10,18,0.88);
+  border-radius: 24px;
+  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.55);
+  backdrop-filter: blur(26px);
+}
+
+.tabbar-item {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 6px 0 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  color: var(--text-soft);
+}
+
+.tabbar-item .tabbar-icon {
+  font-size: 15px;
+}
+
+.tabbar-item.active {
+  color: var(--accent-strong);
+}
+
+/* Buttons */
+.primary-btn {
+  width: 100%;
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: 9px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  background: linear-gradient(135deg, var(--accent), #89e0ff);
+  color: #050509;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.6);
+}
+
+/* Forms */
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.form-row label {
+  font-size: 11px;
+  color: var(--text-soft);
+}
+
+.form-row input,
+.form-row textarea {
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(10,10,16,0.9);
+  color: var(--text-main);
+  padding: 6px 9px;
+  font-size: 13px;
+}
+
+/* Bottom sheet */
+.bottom-sheet {
+  position: fixed;
+  inset: 0;
+  display: none;
+  z-index: 30;
+}
+
+.bottom-sheet.open {
+  display: block;
+}
+
+.sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+}
+
+.sheet-panel {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+  background: rgba(5,6,14,0.98);
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -12px 40px rgba(0,0,0,0.8);
+  padding: 8px 14px 14px;
+}
+
+.sheet-header {
+  position: relative;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.sheet-grabber {
+  width: 40px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.25);
+  margin: 0 auto 6px;
+}
+
+.sheet-title {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sheet-close-btn {
+  position: absolute;
+  right: 0;
+  top: 6px;
+  border: none;
+  background: transparent;
+  color: var(--accent-strong);
+  font-size: 12px;
+}
+
+.sheet-body {
+  margin-top: 6px;
+}
+
+/* Packing */
+.packing-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.packing-name {
+  font-size: 13px;
+}
+
+.packing-category {
+  font-size: 11px;
+  color: var(--text-soft);
+}
+
+/* Summary row for expenses */
+.summary-row {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+</style>
