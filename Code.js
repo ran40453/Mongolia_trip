@@ -1,5 +1,5 @@
 // Code.gs
-
+const SHEET_ID = '1fhEg8S-QYR-RYSd-fNAw-aDRuehahfAqUllRJdx1lVE'; // 你的試算表 ID
 const CONFIG = {
   sheetNames: {
     events: 'events',
@@ -13,12 +13,12 @@ const CONFIG = {
 // 主入口：發 HTML
 function doGet(e) {
   const tpl = HtmlService.createTemplateFromFile('index');
-  // 可預先載入資料，也可以前端再 call
   tpl.initialData = getInitialData();
   return tpl.evaluate()
     .setTitle('內蒙行程')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
+
 
 // include 用來把 css/js partials 插進 index.html
 function include(filename) {
@@ -38,7 +38,7 @@ function getInitialData() {
 
 // 讀 events 表：每列都是一個行程節點
 function getEvents() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = SpreadsheetApp.openById(SHEET_ID);
   const sh = ss.getSheetByName(CONFIG.sheetNames.events);
   if (!sh) return [];
 
@@ -68,7 +68,7 @@ function getEvents() {
 }
 
 function getLandmarks() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = SpreadsheetApp.openById(SHEET_ID);
   const sh = ss.getSheetByName(CONFIG.sheetNames.landmarks);
   if (!sh) return [];
 
@@ -91,7 +91,7 @@ function getLandmarks() {
 
 // 航班：你可以在 Sheet 新增 flights 分頁，欄位例如：date, from, to, flight_no, time, note
 function getFlights() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = SpreadsheetApp.openById(SHEET_ID);
   const sh = ss.getSheetByName(CONFIG.sheetNames.flights);
   if (!sh) return [];
   const values = sh.getDataRange().getValues();
@@ -112,7 +112,7 @@ function getFlights() {
 
 // 物品清單：packing 表建議欄位：category, item, required(是/否), packed(是/否), memo
 function getPacking() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = SpreadsheetApp.openById(SHEET_ID);
   const sh = ss.getSheetByName(CONFIG.sheetNames.packing);
   if (!sh) return [];
   const values = sh.getDataRange().getValues();
@@ -133,7 +133,7 @@ function getPacking() {
 
 // 花費：expenses 建議欄位：date, category, desc, amount, currency, paid_by, memo
 function getExpenses() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = SpreadsheetApp.openById(SHEET_ID);
   const sh = ss.getSheetByName(CONFIG.sheetNames.expenses);
   if (!sh) return [];
   const values = sh.getDataRange().getValues();
@@ -159,7 +159,7 @@ function getExpenses() {
  * data = { rowIndex, time, title, place, moveTime, note }
  */
 function updateEvent(data) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = SpreadsheetApp.openById(SHEET_ID);
   const sh = ss.getSheetByName(CONFIG.sheetNames.events);
   if (!sh) throw new Error('events sheet not found');
 
@@ -187,7 +187,7 @@ function updateEvent(data) {
  * 更新物品清單勾選狀態（packed）
  */
 function updatePackingItem(data) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = SpreadsheetApp.openById(SHEET_ID);
   const sh = ss.getSheetByName(CONFIG.sheetNames.packing);
   if (!sh) throw new Error('packing sheet not found');
 
@@ -204,7 +204,7 @@ function updatePackingItem(data) {
  * 新增一筆花費
  */
 function addExpense(expense) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = SpreadsheetApp.openById(SHEET_ID);
   const sh = ss.getSheetByName(CONFIG.sheetNames.expenses);
   if (!sh) throw new Error('expenses sheet not found');
 

@@ -10,7 +10,12 @@
     <title>內蒙行程</title>
     <?!= include('css'); ?>
   </head>
-  <body>
+    <body>
+    <div style="position:fixed;top:8px;left:8px;z-index:9999;
+                background:#ffeb3b;padding:4px 8px;border-radius:6px;
+                font-size:12px;">
+      DEBUG MONGOLIA v2
+    </div>
     <div id="app" class="app-root">
       <header class="app-header">
         <div class="header-title-group">
@@ -147,11 +152,21 @@
         </div>
       </div>
     </div>
-
+        <!-- 先把 initialData 丟到 global -->
     <script>
       // 把後端塞進來的 initialData 丟進 JS
-      const INITIAL_DATA = <?!= JSON.stringify(initialData) ?>;
+      const INITIAL_DATA = <?!= JSON.stringify(initialData) ?> || {};
+      // 同時掛到 window 上，給 js.html 用
+      window.INITIAL_DATA = INITIAL_DATA;
     </script>
+
+    <!-- 部署標籤：給前端 JS 確認當前載入的是哪一版 -->
+    <? var DEPLOY_TAG = new Date().toISOString(); ?>
+    <script>
+      window.__CW_DEPLOY_TAG = "<?= DEPLOY_TAG ?>";
+      console.log('[MONGOLIA] DEPLOY_TAG', window.__CW_DEPLOY_TAG);
+    </script>
+
     <?!= include('js'); ?>
   </body>
 </html>
