@@ -1,172 +1,232 @@
-<!-- index.html -->
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
   <head>
-    <meta charset="UTF-8" />
+    <meta charset="utf-8" />
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1, viewport-fit=cover"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
-    <title>內蒙行程</title>
-    <?!= include('css'); ?>
+    <title>旅程助手</title>
+
+    <!-- Tailwind + Fonts -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,1,0"
+      rel="stylesheet"
+    />
+
+    <style>
+      body {
+        font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+          sans-serif;
+        background-color: #f2f2f7;
+        padding-bottom: 90px;
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
+      }
+      .glass {
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-top: 1px solid rgba(0, 0, 0, 0.08);
+        border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+      }
+      .loader {
+        width: 30px;
+        height: 30px;
+        border: 3px solid #ddd;
+        border-top-color: #3b82f6;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+      .pb-safe {
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+    </style>
   </head>
-    <body>
-    <div style="position:fixed;top:8px;left:8px;z-index:9999;
-                background:#ffeb3b;padding:4px 8px;border-radius:6px;
-                font-size:12px;">
-      DEBUG MONGOLIA v2
+  <body class="bg-[#F2F2F7]">
+    <!-- Loading Overlay -->
+    <div
+      id="loading"
+      class="fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center transition-opacity duration-300"
+    >
+      <div class="loader mb-4"></div>
+      <p class="text-gray-500 text-sm font-medium animate-pulse">
+        正在同步雲端資料...
+      </p>
     </div>
-    <div id="app" class="app-root">
-      <header class="app-header">
-        <div class="header-title-group">
-          <div class="header-subtitle">Inner Mongolia Trip</div>
-          <h1 class="header-title">內蒙古 · 海拉爾</h1>
-          <div class="header-meta">2025-11-25 ～ 2025-11-30</div>
+
+    <!-- Header -->
+    <header
+      class="sticky top-0 z-40 glass px-5 py-4 flex justify-between items-end shadow-sm"
+    >
+      <div>
+        <p
+          class="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-0.5"
+        >
+          Travel App
+        </p>
+        <h1
+          id="header-title"
+          class="text-2xl font-bold text-gray-900 leading-none"
+        >
+          行程
+        </h1>
+      </div>
+      <div id="header-action" class="hidden"></div>
+    </header>
+
+    <!-- Main View 容器（之後由 js.html 動態渲染） -->
+    <main id="app" class="p-4 min-h-screen"></main>
+
+    <!-- Tab Bar -->
+    <nav class="fixed bottom-0 left-0 right-0 z-50 glass pb-safe">
+      <div
+        class="max-w-md mx-auto flex justify-around items-center h-16 pb-1"
+      >
+        <button
+          class="tab-btn w-full flex flex-col items-center text-blue-600"
+          data-tab="events"
+        >
+          <span class="material-symbols-outlined text-[26px]">
+            calendar_month
+          </span>
+          <span class="text-[10px] font-medium mt-0.5">行程</span>
+        </button>
+        <button
+          class="tab-btn w-full flex flex-col items-center text-gray-400"
+          data-tab="flights"
+        >
+          <span class="material-symbols-outlined text-[26px]">flight</span>
+          <span class="text-[10px] font-medium mt-0.5">航班</span>
+        </button>
+        <button
+          class="tab-btn w-full flex flex-col items-center text-gray-400"
+          data-tab="packing"
+        >
+          <span class="material-symbols-outlined text-[26px]">checklist</span>
+          <span class="text-[10px] font-medium mt-0.5">清單</span>
+        </button>
+        <button
+          class="tab-btn w-full flex flex-col items-center text-gray-400"
+          data-tab="expenses"
+        >
+          <span class="material-symbols-outlined text-[26px]"
+            >account_balance_wallet</span
+          >
+          <span class="text-[10px] font-medium mt-0.5">記帳</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Edit Modal -->
+    <div id="modal" class="fixed inset-0 z-[60] hidden">
+      <!-- 背景 -->
+      <div
+        id="modal-bg"
+        class="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity opacity-0"
+      ></div>
+
+      <!-- Bottom Sheet -->
+      <div
+        id="modal-sheet"
+        class="absolute bottom-0 left-0 right-0 bg-white rounded-t-[30px] p-6 transform transition-transform duration-300 translate-y-full"
+      >
+        <div class="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-6"></div>
+        <h3 class="text-xl font-bold text-gray-900 mb-6">編輯行程</h3>
+
+        <div class="space-y-4">
+          <input type="hidden" id="inp-id" />
+
+          <div>
+            <label
+              class="text-xs font-bold text-gray-400 uppercase tracking-wide"
+              >標題</label
+            >
+            <input
+              id="inp-title"
+              class="w-full mt-1 bg-gray-100 p-3 rounded-xl font-medium focus:bg-white focus:ring-2 ring-blue-500 outline-none transition-all"
+              placeholder="行程標題"
+            />
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label
+                class="text-xs font-bold text-gray-400 uppercase tracking-wide"
+                >時間</label
+              >
+              <input
+                id="inp-time"
+                class="w-full mt-1 bg-gray-100 p-3 rounded-xl focus:bg-white focus:ring-2 ring-blue-500 outline-none transition-all"
+                placeholder="例如 07:30–09:00"
+              />
+            </div>
+            <div>
+              <label
+                class="text-xs font-bold text-gray-400 uppercase tracking-wide"
+                >地點</label
+              >
+              <input
+                id="inp-place"
+                class="w-full mt-1 bg-gray-100 p-3 rounded-xl focus:bg-white focus:ring-2 ring-blue-500 outline-none transition-all"
+                placeholder="地點名稱"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label
+              class="text-xs font-bold text-gray-400 uppercase tracking-wide"
+              >備註</label
+            >
+            <textarea
+              id="inp-note"
+              rows="3"
+              class="w-full mt-1 bg-gray-100 p-3 rounded-xl focus:bg-white focus:ring-2 ring-blue-500 outline-none transition-all"
+              placeholder="可填寫移動方式、天氣、備註等"
+            ></textarea>
+          </div>
         </div>
-      </header>
 
-      <main class="app-main">
-        <!-- 行程分頁 -->
-        <section id="tab-itinerary" class="tab-page active">
-          <div class="segmented-control">
-            <button class="seg-btn active" data-view="list">列表</button>
-            <button class="seg-btn" data-view="timeline">時間軸</button>
-          </div>
-
-          <div id="itinerary-list-view" class="itinerary-view active"></div>
-          <div id="itinerary-timeline-view" class="itinerary-view"></div>
-        </section>
-
-        <!-- 航班分頁 -->
-        <section id="tab-flights" class="tab-page">
-          <div id="flights-list" class="card-list"></div>
-        </section>
-
-        <!-- 地標分頁 -->
-        <section id="tab-landmarks" class="tab-page">
-          <div id="landmarks-list" class="card-list"></div>
-        </section>
-
-        <!-- 物品清單分頁 -->
-        <section id="tab-packing" class="tab-page">
-          <div id="packing-list" class="card-list"></div>
-        </section>
-
-        <!-- 花費分頁 -->
-        <section id="tab-expenses" class="tab-page">
-          <div id="expenses-summary" class="summary-row"></div>
-          <div id="expenses-list" class="card-list"></div>
-
-          <div class="expense-form-card">
-            <div class="expense-form-title">新增花費</div>
-            <div class="form-row">
-              <label>日期</label>
-              <input type="date" id="exp-date" />
-            </div>
-            <div class="form-row">
-              <label>類別</label>
-              <input type="text" id="exp-category" placeholder="餐飲 / 交通 / 景點" />
-            </div>
-            <div class="form-row">
-              <label>說明</label>
-              <input type="text" id="exp-desc" placeholder="例如：晚餐、計程車" />
-            </div>
-            <div class="form-row">
-              <label>金額</label>
-              <input type="number" id="exp-amount" inputmode="decimal" />
-            </div>
-            <div class="form-row">
-              <label>幣別</label>
-              <input type="text" id="exp-currency" value="CNY" />
-            </div>
-            <div class="form-row">
-              <label>付款人</label>
-              <input type="text" id="exp-paidby" value="Cody" />
-            </div>
-            <div class="form-row">
-              <label>備註</label>
-              <input type="text" id="exp-memo" />
-            </div>
-            <button id="exp-add-btn" class="primary-btn">加入紀錄</button>
-          </div>
-        </section>
-      </main>
-
-      <!-- 下方 tabbar -->
-      <nav class="tabbar">
-        <button class="tabbar-item active" data-tab="itinerary">
-          <span class="tabbar-icon">📅</span>
-          <span class="tabbar-label">行程</span>
-        </button>
-        <button class="tabbar-item" data-tab="flights">
-          <span class="tabbar-icon">✈️</span>
-          <span class="tabbar-label">航班</span>
-        </button>
-        <button class="tabbar-item" data-tab="landmarks">
-          <span class="tabbar-icon">📍</span>
-          <span class="tabbar-label">地標</span>
-        </button>
-        <button class="tabbar-item" data-tab="packing">
-          <span class="tabbar-icon">🎒</span>
-          <span class="tabbar-label">物品</span>
-        </button>
-        <button class="tabbar-item" data-tab="expenses">
-          <span class="tabbar-icon">¥</span>
-          <span class="tabbar-label">花費</span>
-        </button>
-      </nav>
-
-      <!-- 行程編輯 bottom sheet -->
-      <div id="event-sheet" class="bottom-sheet">
-        <div class="sheet-backdrop"></div>
-        <div class="sheet-panel">
-          <div class="sheet-header">
-            <div class="sheet-grabber"></div>
-            <div class="sheet-title">編輯行程</div>
-            <button id="event-sheet-close" class="sheet-close-btn">完成</button>
-          </div>
-          <div class="sheet-body">
-            <input type="hidden" id="event-rowIndex" />
-            <div class="form-row">
-              <label>時間</label>
-              <input type="text" id="event-time" />
-            </div>
-            <div class="form-row">
-              <label>項目</label>
-              <input type="text" id="event-title" />
-            </div>
-            <div class="form-row">
-              <label>地點</label>
-              <input type="text" id="event-place" />
-            </div>
-            <div class="form-row">
-              <label>移動時間</label>
-              <input type="text" id="event-moveTime" />
-            </div>
-            <div class="form-row">
-              <label>備註</label>
-              <textarea id="event-note" rows="3"></textarea>
-            </div>
-            <button id="event-save-btn" class="primary-btn">儲存到行程表</button>
-          </div>
+        <div class="mt-6 flex gap-3">
+          <button
+            id="modal-cancel"
+            class="flex-1 py-3 rounded-2xl bg-gray-100 text-gray-700 font-medium"
+          >
+            取消
+          </button>
+          <button
+            id="modal-save"
+            class="flex-1 py-3 rounded-2xl bg-blue-600 text-white font-semibold shadow-sm"
+          >
+            儲存
+          </button>
         </div>
       </div>
     </div>
-        <!-- 先把 initialData 丟到 global -->
-    <script>
-      // 把後端塞進來的 initialData 丟進 JS
-      const INITIAL_DATA = <?!= JSON.stringify(initialData) ?> || {};
-      // 同時掛到 window 上，給 js.html 用
-      window.INITIAL_DATA = INITIAL_DATA;
-    </script>
 
-    <!-- 部署標籤：給前端 JS 確認當前載入的是哪一版 -->
-    <? var DEPLOY_TAG = new Date().toISOString(); ?>
+    <!-- 後端注入資料 + 啟動前端 JS -->
     <script>
-      window.__CW_DEPLOY_TAG = "<?= DEPLOY_TAG ?>";
-      console.log('[MONGOLIA] DEPLOY_TAG', window.__CW_DEPLOY_TAG);
-    </script>
+      // 先給一個 DEPLOY_TAG，讓 js.html 的安全檢查可以通過
+      window.__CW_DEPLOY_TAG = window.__CW_DEPLOY_TAG || 'MONGOLIA_TRIP_V1';
 
+      // 把 Apps Script 後端塞進來的 initialData 丟到前端
+      // （code.js 的 doGet 會提供 initialData）
+      window.INITIAL_DATA = <?!= JSON.stringify(initialData) ?> || {};
+    </script>
     <?!= include('js'); ?>
   </body>
 </html>
