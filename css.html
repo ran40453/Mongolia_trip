@@ -288,4 +288,49 @@ body {
   padding: 12px 0;
   color: #111827;
 }
+
+/* 記帳：總花費膠囊區塊 */
+.exp-total-bar {
+  background: rgba(17, 17, 17, 0.94); /* 深灰近黑 */
+  color: #fff;
+  padding: 12px 16px;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25);
+}
+
+/* 如果裡面是「預估總花費：XXX」這種結構，讓文字不要貼太死 */
+.exp-total-bar span {
+  font-weight: 600;
+}
+
+/* 記帳：新增記帳表單卡片 */
+.exp-form-card {
+  background: rgba(255, 255, 255, 0.86);   /* 微透白 */
+  backdrop-filter: blur(24px);             /* 玻璃感關鍵 */
+  -webkit-backdrop-filter: blur(24px);
+  border-radius: 22px;
+  padding: 14px 14px 18px;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.18);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+}
+
+/* 表單內的 input/select 跟外框協調一點 */
+.exp-form-card input,
+.exp-form-card select {
+  background: rgba(248, 250, 252, 0.9);
+  border-radius: 12px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  font-size: 13px;
+}
+
+.exp-form-card button#exp-add {
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
 </style>
