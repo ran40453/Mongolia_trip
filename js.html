@@ -1,360 +1,747 @@
 <script>
-/* -------------------------------------------------------
-   MONGOLIA TRIP APP – Tailwind UI Version
-  （安全重寫，不破壞 deployment / 不破壞 include 系統）
---------------------------------------------------------*/
-;(function (global) {
+(function (global) {
   if (!global || !global.document) return;
 
-  // 這段保留，避免 __CW_DEPLOY_TAG 缺失直接跳出
+  // 確保有 DEPLOY_TAG（方便 debug）
   if (!global.__CW_DEPLOY_TAG) {
-    console.warn("[MONGOLIA] __CW_DEPLOY_TAG missing");
-    global.__CW_DEPLOY_TAG = "MONGOLIA_TRIP_V1";
+    console.warn('[MONGOLIA] __CW_DEPLOY_TAG missing');
+    global.__CW_DEPLOY_TAG = 'MONGOLIA_TRIP_V1';
   }
 
-  console.log("[MONGOLIA] JS loaded, DEPLOY_TAG =", global.__CW_DEPLOY_TAG);
-
-  /* -------------------------------------------------------
-      STATE
-  --------------------------------------------------------*/
+  // ---- 全域狀態 ----
   const state = {
-    tab: "events",
+    tab: 'events',
     events: [],
     flights: [],
     landmarks: [],
     packing: [],
-    expenses: []
+    expenses: [],
   };
 
   global.__MONGOLIA_STATE__ = state;
 
+  // ---- 初始載入 ----
+  function applyInitialData() {
+    const initial = global.INITIAL_DATA || {};
+    console.log('[MONGOLIA] INITIAL_DATA =', initial);
 
-  /* -------------------------------------------------------
-      INIT
-  --------------------------------------------------------*/
+    state.events = Array.isArray(initial.events) ? initial.events : [];
+    state.flights = Array.isArray(initial.flights) ? initial.flights : [];
+    state.landmarks = Array.isArray(initial.landmarks) ? initial.landmarks : [];
+    state.packing = Array.isArray(initial.packing) ? initial.packing : [];
+    state.expenses = Array.isArray(initial.expenses) ? initial.expenses : [];
+  }
+
   function initApp() {
-    console.log("[MONGOLIA] initApp start");
-
-    const initial = global.INITIAL_DATA || null;
-    console.log("[MONGOLIA] INITIAL_DATA =", initial);
-
-    if (initial) {
-      state.events = initial.events || [];
-      state.flights = initial.flights || [];
-      state.landmarks = initial.landmarks || [];
-      state.packing = initial.packing || [];
-      state.expenses = initial.expenses || [];
-    }
-
+    applyInitialData();
     setupTabbar();
     render();
-
     hideLoading();
   }
 
   function hideLoading() {
-    const loading = document.getElementById("loading");
+    const loading = document.getElementById('loading');
     if (!loading) return;
     loading.style.opacity = 0;
-    setTimeout(() => (loading.style.display = "none"), 400);
+    setTimeout(function () {
+      loading.style.display = 'none';
+    }, 400);
   }
 
-
-  /* -------------------------------------------------------
-      TABS
-  --------------------------------------------------------*/
+  // ---- Tab bar ----
   function setupTabbar() {
-    const btns = document.querySelectorAll(".tab-btn");
-    btns.forEach((btn) => {
-      btn.addEventListener("click", () => {
+    const btns = document.querySelectorAll('.tab-btn');
+    btns.forEach(function (btn) {
+      btn.addEventListener('click', function () {
         const tab = btn.dataset.tab;
-        console.log("[MONGOLIA] tab =", tab);
         state.tab = tab;
 
-        btns.forEach((b) =>
-          b.classList.toggle("text-blue-600", b === btn)
-        );
-        btns.forEach((b) =>
-          b.classList.toggle("text-gray-400", b !== btn)
-        );
+        btns.forEach(function (b) {
+          b.classList.toggle('text-blue-600', b === btn);
+          b.classList.toggle('text-gray-400', b !== btn);
+        });
 
         render();
       });
     });
   }
 
-
-  /* -------------------------------------------------------
-      MAIN RENDER
-  --------------------------------------------------------*/
+  // ---- 主渲染 ----
   function render() {
-    const root = document.getElementById("app");
+    const root = document.getElementById('app');
     if (!root) return;
 
-    switch (state.tab) {
-      case "events":
-        document.getElementById("header-title").textContent = "行程";
-        root.innerHTML = renderEventsPage();
-        setupEventCardClicks();
-        break;
+    const header = document.getElementById('header-title');
+    if (!header) return;
 
-      case "flights":
-        document.getElementById("header-title").textContent = "航班";
-        root.innerHTML = renderFlightsPage();
-        break;
-
-      case "packing":
-        document.getElementById("header-title").textContent = "清單";
-        root.innerHTML = renderPackingPage();
-        setupPackingToggle();
-        break;
-
-      case "expenses":
-        document.getElementById("header-title").textContent = "記帳";
-        root.innerHTML = renderExpensesPage();
-        setupExpenseInputs();
-        break;
+    if (state.tab === 'events') {
+      header.textContent = '行程';
+      root.innerHTML = renderEventsPage();
+      setupEventInteractions();
+    } 
+    else if (state.tab === 'flights') {
+      header.textContent = '航班';
+      root.innerHTML = renderFlightsPage();
+    } 
+    else if (state.tab === 'landmarks') {
+      header.textContent = '地標';
+      root.innerHTML = renderLandmarksPage();
+      setupLandmarkInteractions();
+    } 
+    else if (state.tab === 'packing') {
+      header.textContent = '清單';
+      root.innerHTML = renderPackingPage();
+      setupPackingInteractions();
+    } 
+    else if (state.tab === 'expenses') {
+      header.textContent = '記帳';
+      root.innerHTML = renderExpensesPage();
+      setupExpenseInteractions();
     }
   }
 
+  // =====================================================
+  // 行程頁：依 Day 分組 + 卡片 + Modal 編輯
+  // =====================================================
 
-  /* -------------------------------------------------------
-      RENDER: EVENTS
-  --------------------------------------------------------*/
-  function renderEventsPage() {
+  function groupEventsByDay() {
     const groups = {};
+    state.events.forEach(function (ev) {
+      const key = ev.day_title || ev.date_label || '未分組';
+      if (!groups[key]) {
+        groups[key] = {
+          header: ev.day_title || key,
+          dateLabel: ev.date_label || '',
+          items: [],
+        };
+      }
+      groups[key].items.push(ev);
+    });
+    return groups;
+  }
 
-    [...state.events]
-      .sort((a, b) =>
-        a.dayIndex === b.dayIndex ? a.seq - b.seq : a.dayIndex - b.dayIndex
-      )
-      .forEach((ev) => {
-        const key = ev.dayIndex || 0;
-        if (!groups[key]) groups[key] = [];
-        groups[key].push(ev);
+  function renderEventsPage() {
+    const groups = groupEventsByDay();
+    const keys = Object.keys(groups);
+
+    if (!keys.length) {
+      return '<p class="text-gray-400 text-center mt-10">尚無行程資料</p>';
+    }
+
+    let html = '';
+
+    keys.forEach(function (key) {
+      const g = groups[key];
+
+      // Day 標題：只在外層顯示一次
+      html +=
+        '<section class="mb-6">' +
+        '<div class="day-title">' +
+        escapeHtml(g.header) +
+        '</div>' +
+        (g.dateLabel
+          ? '<p class="text-[11px] text-gray-400 mb-2">' +
+            escapeHtml(g.dateLabel) +
+            '</p>'
+          : '') +
+        '<div class="space-y-2">';
+
+      g.items.forEach(function (ev, index) {
+        const isLast = index === g.items.length - 1;
+        const time = ev.time || '';
+        const title = ev.title || '';
+        const place = ev.place || ev.location || ev.地點 || '';
+        const move =
+          ev.move_time ||
+          ev.move ||
+          ev.transport ||
+          ev.移動時間 ||
+          ev.交通 ||
+          '';
+        const note = ev.note || ev.remark || ev.備註 || '';
+
+        html +=
+          '<div class="flex gap-3">' +
+          '<div class="flex flex-col items-center pt-2">' +
+          '<div class="w-[10px] h-[10px] rounded-full bg-blue-500"></div>' +
+          (isLast
+            ? '<div class="flex-1 w-px bg-transparent"></div>'
+            : '<div class="flex-1 w-px bg-blue-200"></div>') +
+          '</div>' +
+          '<div class="flex-1 ev-card p-3 active:scale-[0.98] transition transform cursor-pointer" data-id="' +
+          String(ev.id) +
+          '">' +
+          (time
+            ? '<div class="text-[12px] font-semibold text-blue-600 mb-0.5">' +
+              escapeHtml(time) +
+              '</div>'
+            : '') +
+          (title
+            ? '<div class="ev-title">' + escapeHtml(title) + '</div>'
+            : '') +
+          (place
+            ? '<div class="ev-place mt-0.5">' + escapeHtml(place) + '</div>'
+            : '') +
+          (move
+            ? '<div class="ev-move">' + escapeHtml(move) + '</div>'
+            : '') +
+          (note
+            ? '<div class="ev-note">' + escapeHtml(note) + '</div>'
+            : '') +
+          '</div>' +
+          '</div>';
       });
 
-    let html = "";
-
-    Object.keys(groups)
-      .sort((a, b) => a - b)
-      .forEach((d) => {
-        const day = groups[d];
-        const header = day[0].dayTitle || `DAY ${d}`;
-        const date = day[0].dateLabel || "";
-
-        html += `
-        <section class="mb-8">
-          <h2 class="text-lg font-bold mb-2">${header}</h2>
-          <p class="text-xs text-gray-500 mb-3">${date}</p>
-          <div class="space-y-2">
-        `;
-
-        day.forEach((ev) => {
-          html += `
-            <div class="ev-card p-4 bg-white rounded-xl shadow-sm active:scale-[0.98] transition"
-                 data-id="${ev.rowIndex}">
-              <div class="text-sm font-medium text-blue-600">${ev.time || ""}</div>
-              <div class="font-semibold text-gray-900">${ev.title || ""}</div>
-              <div class="text-sm text-gray-500">${ev.place || ""}</div>
-              ${ev.note ? `<div class="text-xs text-gray-400 mt-1">${ev.note}</div>` : ""}
-            </div>
-          `;
-        });
-
-        html += `</div></section>`;
-      });
-
-    return html || `<p class="text-gray-400 text-center mt-10">尚無行程資料</p>`;
-  }
-
-  function setupEventCardClicks() {
-    document.querySelectorAll(".ev-card").forEach((card) => {
-      card.addEventListener("click", () => {
-        const id = Number(card.dataset.id);
-        const item = state.events.find((ev) => ev.rowIndex === id);
-        if (item) openModal(item);
-      });
-    });
-
-    setupModalControls();
-  }
-
-
-  /* -------------------------------------------------------
-      MODAL
-  --------------------------------------------------------*/
-  function setupModalControls() {
-    const bg = document.getElementById("modal-bg");
-    const sheet = document.getElementById("modal-sheet");
-    const cancel = document.getElementById("modal-cancel");
-
-    if (!bg || !sheet) return;
-
-    bg.addEventListener("click", closeModal);
-    cancel.addEventListener("click", closeModal);
-  }
-
-  function openModal(item) {
-    document.getElementById("inp-id").value = item.rowIndex;
-    document.getElementById("inp-title").value = item.title || "";
-    document.getElementById("inp-time").value = item.time || "";
-    document.getElementById("inp-place").value = item.place || "";
-    document.getElementById("inp-note").value = item.note || "";
-
-    const bg = document.getElementById("modal-bg");
-    const sheet = document.getElementById("modal-sheet");
-    const modal = document.getElementById("modal");
-
-    modal.classList.remove("hidden");
-    setTimeout(() => {
-      bg.style.opacity = 1;
-      sheet.style.transform = "translateY(0)";
-    }, 20);
-  }
-
-  function closeModal() {
-    const bg = document.getElementById("modal-bg");
-    const sheet = document.getElementById("modal-sheet");
-    const modal = document.getElementById("modal");
-
-    bg.style.opacity = 0;
-    sheet.style.transform = "translateY(100%)";
-    setTimeout(() => modal.classList.add("hidden"), 300);
-  }
-
-
-  /* -------------------------------------------------------
-      FLIGHTS
-  --------------------------------------------------------*/
-  function renderFlightsPage() {
-    let html = "";
-    state.flights.forEach((f) => {
-      html += `
-        <div class="p-4 mb-3 bg-white rounded-xl shadow-sm">
-          <div class="flex justify-between items-center">
-            <div>
-              <h3 class="font-semibold text-gray-900">${f.segment}</h3>
-              <p class="text-xs text-gray-400">${f.date}</p>
-            </div>
-            <span class="text-blue-600 font-bold">${f.flightNo}</span>
-          </div>
-          <p class="text-sm mt-2 text-gray-600">${f.time}</p>
-          ${f.note ? `<p class="text-xs text-gray-400">${f.note}</p>` : ""}
-        </div>
-      `;
-    });
-
-    return html || `<p class="text-gray-400 text-center mt-10">尚無航班資料</p>`;
-  }
-
-
-  /* -------------------------------------------------------
-      PACKING LIST
-  --------------------------------------------------------*/
-  function renderPackingPage() {
-    let html = "";
-
-    state.packing.forEach((p) => {
-      const checked =
-        String(p.packed).toLowerCase() === "yes" ? "checked" : "";
-
-      html += `
-        <div class="p-4 mb-3 bg-white rounded-xl shadow-sm flex justify-between items-center">
-          <div>
-            <div class="font-semibold">${p.item}</div>
-            <div class="text-xs text-gray-400">${p.category}</div>
-          </div>
-          <input type="checkbox" class="pack-toggle" data-id="${p.rowIndex}" ${checked} />
-        </div>
-      `;
-    });
-
-    return html || `<p class="text-gray-400 text-center mt-10">尚無清單資料</p>`;
-  }
-
-  function setupPackingToggle() {
-    document.querySelectorAll(".pack-toggle").forEach((chk) => {
-      chk.addEventListener("change", () => {
-        const row = Number(chk.dataset.id);
-        const val = chk.checked ? "yes" : "no";
-
-        google.script.run.updatePackingItem({
-          rowIndex: row,
-          packed: val
-        });
-      });
-    });
-  }
-
-
-  /* -------------------------------------------------------
-      EXPENSES
-  --------------------------------------------------------*/
-  function renderExpensesPage() {
-    let html = `
-      <div class="mb-6">
-        <h3 class="font-semibold mb-2">新增記帳</h3>
-        <div class="space-y-3">
-          <input id="exp-date" class="w-full bg-gray-100 p-2 rounded" type="date" />
-          <input id="exp-category" class="w-full bg-gray-100 p-2 rounded" placeholder="類別" />
-          <input id="exp-desc" class="w-full bg-gray-100 p-2 rounded" placeholder="內容" />
-          <input id="exp-amount" class="w-full bg-gray-100 p-2 rounded" type="number" placeholder="金額" />
-          <input id="exp-paidby" class="w-full bg-gray-100 p-2 rounded" placeholder="付款人" />
-          <button id="exp-add" class="w-full py-2 rounded bg-blue-600 text-white">新增</button>
-        </div>
-      </div>
-      
-      <h3 class="font-semibold mb-3">紀錄</h3>
-    `;
-
-    state.expenses.forEach((e) => {
-      html += `
-        <div class="p-4 mb-3 bg-white rounded-xl shadow-sm">
-          <div class="flex justify-between items-center">
-            <div>
-              <p class="font-medium text-gray-900">${e.desc}</p>
-              <p class="text-xs text-gray-400">${e.date}</p>
-            </div>
-            <span class="text-blue-600 font-bold">${e.currency || "CNY"} ${e.amount}</span>
-          </div>
-        </div>
-      `;
+      html += '</div></section>';
     });
 
     return html;
   }
 
-  function setupExpenseInputs() {
-    const btn = document.getElementById("exp-add");
+  function setupEventInteractions() {
+    const cards = document.querySelectorAll('.ev-card');
+    cards.forEach(function (card) {
+      card.addEventListener('click', function () {
+        const id = card.getAttribute('data-id');
+        const item = state.events.find(function (ev) {
+          return String(ev.id) === String(id);
+        });
+        if (item) openModal(item);
+      });
+    });
+
+    const cancelBtn = document.getElementById('modal-cancel');
+    const bg = document.getElementById('modal-bg');
+    if (cancelBtn) cancelBtn.onclick = closeModal;
+    if (bg) bg.onclick = closeModal;
+
+    const saveBtn = document.getElementById('modal-save');
+    if (saveBtn) {
+      saveBtn.onclick = function () {
+        const id = document.getElementById('inp-id').value;
+        const title = document.getElementById('inp-title').value;
+        const time = document.getElementById('inp-time').value;
+        const place = document.getElementById('inp-place').value;
+        const note = document.getElementById('inp-note').value;
+
+        if (!id) {
+          closeModal();
+          return;
+        }
+
+        google.script.run
+          .withSuccessHandler(function (res) {
+            if (res && res.success) {
+              const target = state.events.find(function (ev) {
+                return String(ev.id) === String(id);
+              });
+              if (target) {
+                target.title = title;
+                target.time = time;
+                target.place = place;
+                target.note = note;
+              }
+              render();
+              closeModal();
+            } else {
+              console.log('saveEventData failed', res);
+              closeModal();
+            }
+          })
+          .saveEventData(id, title, time, place, note);
+      };
+    }
+  }
+
+  function openModal(item) {
+    document.getElementById('inp-id').value = item.id || '';
+    document.getElementById('inp-title').value = item.title || '';
+    document.getElementById('inp-time').value = item.time || '';
+    document.getElementById('inp-place').value = item.place || '';
+    document.getElementById('inp-note').value = item.note || '';
+
+    const modal = document.getElementById('modal');
+    const bg = document.getElementById('modal-bg');
+    const sheet = document.getElementById('modal-sheet');
+    if (!modal || !bg || !sheet) return;
+
+    modal.classList.remove('hidden');
+    setTimeout(function () {
+      bg.style.opacity = 1;
+      sheet.style.transform = 'translateY(0)';
+    }, 20);
+  }
+
+  function closeModal() {
+    const modal = document.getElementById('modal');
+    const bg = document.getElementById('modal-bg');
+    const sheet = document.getElementById('modal-sheet');
+    if (!modal || !bg || !sheet) return;
+
+    bg.style.opacity = 0;
+    sheet.style.transform = 'translateY(100%)';
+    setTimeout(function () {
+      modal.classList.add('hidden');
+    }, 250);
+  }
+
+  // =====================================================
+  // 航班頁
+  // =====================================================
+
+  function renderFlightsPage() {
+    if (!state.flights.length) {
+      return '<p class="text-gray-400 text-center mt-10">尚無航班資料</p>';
+    }
+
+    let html = '';
+    state.flights.forEach(function (f) {
+      const airline = f.airline || f.company || 'AIR CHINA';
+      const flightNo = f.flight_no || f.flightNo || '';
+      const date = f.date || '';
+
+      // 先拿 segment，避免直接 split 崩掉
+      let from =
+        f.from ||
+        f.origin ||
+        f.from_code ||
+        f.depart_airport ||
+        f.fromCity ||
+        '';
+      let to =
+        f.to ||
+        f.destination ||
+        f.to_code ||
+        f.arrive_airport ||
+        f.toCity ||
+        '';
+      const seg = f.segment || '';
+      if ((!from || !to) && seg) {
+        const parts = seg.split('→');
+        if (!from && parts[0]) from = parts[0].trim();
+        if (!to && parts[1]) to = parts[1].trim();
+      }
+
+      // time 也是同樣處理
+      let dep = f.dep_time || f.depart || f.depart_time || '';
+      let arr = f.arr_time || f.arrive || f.arrival_time || '';
+      const t = f.time || '';
+      if (t && (!dep || !arr)) {
+        const tParts = t.split('–');
+        if (!dep && tParts[0]) dep = tParts[0].trim();
+        if (!arr && tParts[1]) arr = tParts[1].trim();
+      }
+
+      const duration = f.duration || f.dur || '';
+      const info = f.note || f.info || '';
+
+      html +=
+        '<article class="flight-card mb-4 rounded-2xl overflow-hidden shadow-sm bg-white border border-gray-200">' +
+        '<header class="flight-header px-4 py-2 flex items-center justify-between">' +
+        '<span class="flight-airline tracking-[0.18em] text-xs font-semibold">' +
+        escapeHtml(airline) +
+        '</span>' +
+        '<span class="flight-no text-xs font-semibold">' +
+        escapeHtml(flightNo) +
+        '</span>' +
+        '</header>' +
+        '<div class="px-4 pt-4 pb-3">' +
+        '<div class="flex items-center justify-between mb-4">' +
+        '<div>' +
+        '<div class="text-[26px] font-extrabold leading-none text-gray-900">' +
+        escapeHtml(from) +
+        '</div>' +
+        (dep
+          ? '<div class="text-xs text-gray-500 mt-1">' +
+            escapeHtml(dep) +
+            '</div>'
+          : '') +
+        '</div>' +
+        '<div class="flex flex-col items-center justify-center flex-1">' +
+        '<span class="material-symbols-outlined text-[20px] opacity-40">flight</span>' +
+        (duration
+          ? '<span class="text-[11px] text-gray-400 mt-0.5">' +
+            escapeHtml(duration) +
+            '</span>'
+          : '') +
+        '</div>' +
+        '<div class="text-right">' +
+        '<div class="text-[26px] font-extrabold leading-none text-gray-900">' +
+        escapeHtml(to) +
+        '</div>' +
+        (arr
+          ? '<div class="text-xs text-gray-500 mt-1">' +
+            escapeHtml(arr) +
+            '</div>'
+          : '') +
+        '</div>' +
+        '</div>' +
+        '<div class="h-px w-full bg-gray-200 my-2"></div>' +
+        '<div class="flex justify-between items-start text-[11px] text-gray-500">' +
+        '<div>' +
+        '<div class="font-semibold tracking-wide mb-0.5">DATE</div>' +
+        '<div>' +
+        escapeHtml(date) +
+        '</div>' +
+        '</div>' +
+        (info
+          ? '<div class="text-right max-w-[55%]">' +
+            '<div class="font-semibold tracking-wide mb-0.5">INFO</div>' +
+            '<div>' +
+            escapeHtml(info) +
+            '</div>' +
+            '</div>'
+          : '') +
+        '</div>' +
+        '</div>' +
+        '</article>';
+    });
+
+    return html;
+  }
+
+  // =====================================================
+  // 地標頁
+  // =====================================================
+
+  function renderLandmarksPage() {
+    if (!state.landmarks.length) {
+      return '<p class="text-gray-400 text-center mt-10">尚無地標資料</p>';
+    }
+
+    // 依類型分組
+    const groups = {};
+    state.landmarks.forEach(function (lm) {
+      const type = lm.type || lm.類型 || '其他';
+      if (!groups[type]) groups[type] = [];
+      groups[type].push(lm);
+    });
+
+    let html = '';
+    Object.keys(groups).forEach(function (type) {
+      const list = groups[type];
+
+      html +=
+        '<section class="mb-5">' +
+        '<h3 class="lm-card-type">' + escapeHtml(type) + '</h3>';
+
+      list.forEach(function (lm) {
+        const name = lm.name || lm.名稱 || '';
+        const lat  = lm.lat || lm.latitude  || lm.緯度  || '';
+        const lng  = lm.lng || lm.longitude || lm.經度 || '';
+        const note = lm.note || lm.備註 || '';
+
+        // 經緯度字串：lat, lng（若其中一個空就只顯示現有的）
+        let coordText = '';
+        if (lat && lng) {
+          coordText = String(lat) + ', ' + String(lng);
+        } else if (lat || lng) {
+          coordText = String(lat || lng);
+        }
+
+        html +=
+          '<div class="lm-card p-4 mb-3 bg-white rounded-xl shadow-sm border border-gray-200" data-id="' +
+          escapeHtml(String(lm.id || lm.ID || lm.編號 || '')) +
+          '">' +
+          // 標題：只顯示地點名稱（A 欄）
+          (name
+            ? '<div class="lm-card-title mb-1">' + escapeHtml(name) + '</div>'
+            : '') +
+          // 經緯度：放在 lm-card-memo
+          (coordText
+            ? '<div class="lm-card-memo text-[12px] text-gray-500 mb-1">' +
+              escapeHtml(coordText) +
+              '</div>'
+            : '') +
+          // 備註：另外一行小字
+          (note
+            ? '<div class="text-[11px] text-gray-400 mt-1">' +
+              escapeHtml(note) +
+              '</div>'
+            : '') +
+          '</div>';
+      });
+
+      html += '</section>';
+    });
+
+    return html;
+  }
+
+  function setupLandmarkInteractions() {
+    const cards = document.querySelectorAll('.lm-card');
+    cards.forEach(function (card) {
+      card.addEventListener('click', function () {
+        const id = card.getAttribute('data-id');
+        const lm = state.landmarks.find(function (x) {
+          return String(x.id || x.ID || x.編號 || '') === String(id);
+        });
+        if (!lm) return;
+
+        // 優先使用明確連結欄位，其次用名稱+備註組搜尋字串
+        let url =
+          lm.url ||
+          lm.map_url ||
+          lm.gmap ||
+          lm.link ||
+          lm.地圖連結 ||
+          '';
+
+        if (!url) {
+          const q = encodeURIComponent(
+            (lm.name || lm.名稱 || '') + ' ' + (lm.note || lm.備註 || '')
+          );
+          url = 'https://www.google.com/maps/search/?api=1&query=' + q;
+        }
+
+        window.open(url, '_blank');
+      });
+    });
+  }
+
+  // =====================================================
+  // 清單頁：依 category 分卡片 + 勾選寫回
+  // =====================================================
+
+  function renderPackingPage() {
+    if (!state.packing.length) {
+      return '<p class="text-gray-400 text-center mt-10">尚無清單資料</p>';
+    }
+
+    const groups = {};
+    state.packing.forEach(function (p) {
+      const cat =
+        p.category || p.cat || p.type || p.類別 || '其他';
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(p);
+    });
+
+    let html = '';
+    Object.keys(groups).forEach(function (cat) {
+      const list = groups[cat];
+      html +=
+        '<section class="mb-4">' +
+        '<h3 class="text-xs font-bold text-gray-500 tracking-wide mb-1">' +
+        escapeHtml(cat) +
+        '</h3>' +
+        '<div class="bg-white rounded-2xl shadow-sm divide-y divide-gray-200">';
+      list.forEach(function (p) {
+        const label = p.item || p.name || p.desc || p.項目 || '';
+        const memo = p.memo || p.note || p.備註 || '';
+        const qty = p.require || p.qty || p.quantity || p.數量 || '';
+        const packedRaw =
+          typeof p.checked !== 'undefined'
+            ? p.checked
+            : p.packed || p.status || '';
+        const checked =
+          typeof packedRaw === 'boolean'
+            ? packedRaw
+            : String(packedRaw).toLowerCase() === 'yes' || packedRaw === '1';
+        const idVal = p.id || p.rowIndex || p.row || '';
+
+        html +=
+          '<label class="flex items-center justify-between p-3 cursor-pointer">' +
+          '<div class="flex-1 mr-2">' +
+          '<div class="pack-item-name">' +
+          escapeHtml(label) +
+          '</div>' +
+          (memo
+            ? '<div class="pack-item-memo">' +
+              escapeHtml(memo) +
+              '</div>'
+            : '') +
+          '</div>' +
+          (qty
+            ? '<div class="mr-2 pack-qty">x ' + escapeHtml(String(qty)) + '</div>'
+            : '') +
+          '<input type="checkbox" class="pack-toggle" data-id="' +
+          escapeHtml(String(idVal)) +
+          '" ' +
+          (checked ? 'checked' : '') +
+          (idVal ? '' : ' disabled') +
+          ' />' +
+          '</label>';
+      });
+      html += '</div></section>';
+    });
+
+    return html;
+  }
+
+function setupPackingInteractions() {
+  const toggles = document.querySelectorAll('.pack-toggle');
+  toggles.forEach(function (chk) {
+    chk.addEventListener('change', function () {
+      const id = chk.dataset.id;
+      const isChecked = chk.checked;
+      const val = isChecked ? 'yes' : 'no';
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          const target = state.packing.find(function (p) {
+            return (
+              String(p.id || p.rowIndex || p.row || '') === String(id)
+            );
+          });
+          if (target) {
+            target.checked = isChecked;
+            target.packed = val;
+          }
+        })
+        .withFailureHandler(function (err) {
+          console.error('togglePackingStatus failed', err);
+        })
+        .togglePackingStatus(id, isChecked);
+    });
+  });
+}
+
+  // =====================================================
+  // 記帳頁
+  // =====================================================
+
+  function renderExpensesPage() {
+    // 計算總額
+    const total = state.expenses.reduce(function (sum, e) {
+      const amt = Number(e.amount || 0);
+      return sum + (isNaN(amt) ? 0 : amt);
+    }, 0);
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+
+    let html =
+      '<div class="mb-4 exp-total-bar">預估總花費：' +
+      '<span class="text-blue-600">CNY ' +
+      escapeHtml(String(total)) +
+      '</span>' +
+      '</div>' +
+      '<div class="mb-6">' +
+      '<h3 class="font-semibold mb-2">新增記帳</h3>' +
+      '<div class="space-y-3">' +
+      '<input id="exp-date" class="w-full bg-gray-100 p-2 rounded" type="date" value="' +
+      todayStr +
+      '" />' +
+      '<select id="exp-category" class="w-full bg-gray-100 p-2 rounded">' +
+      '<option value="">類別</option>' +
+      '<option value="交通">交通</option>' +
+      '<option value="餐飲">餐飲</option>' +
+      '<option value="住宿">住宿</option>' +
+      '<option value="門票">門票</option>' +
+      '<option value="購物">購物</option>' +
+      '<option value="其他">其他</option>' +
+      '</select>' +
+      '<input id="exp-desc" class="w-full bg-gray-100 p-2 rounded" placeholder="內容" />' +
+      '<div class="flex gap-2">' +
+      '<select id="exp-currency" class="w-24 bg-gray-100 p-2 rounded">' +
+      '<option value="CNY">CNY</option>' +
+      '<option value="TWD">TWD</option>' +
+      '</select>' +
+      '<input id="exp-amount" class="flex-1 bg-gray-100 p-2 rounded" type="number" placeholder="金額" />' +
+      '</div>' +
+      '<button id="exp-add" class="w-full py-2 rounded bg-blue-600 text-white">新增</button>' +
+      '</div>' +
+      '</div>' +
+      '<h3 class="font-semibold mb-3">紀錄</h3>';
+
+    if (!state.expenses.length) {
+      html += '<p class="text-gray-400 text-center mt-10">尚無記帳資料</p>';
+    } else {
+      state.expenses.forEach(function (e) {
+        const desc = e.desc || e.title || '';
+        const date = e.date || '';
+        const amount = e.amount || '';
+        const currency = e.currency || 'CNY';
+
+        html +=
+          '<div class="p-4 mb-3 bg-white rounded-xl shadow-sm exp-card">' +
+          '<div class="flex justify-between items-center">' +
+          '<div>' +
+          '<p class="font-medium text-gray-900">' +
+          escapeHtml(desc) +
+          '</p>' +
+          '<p class="text-xs text-gray-400">' +
+          escapeHtml(date) +
+          '</p>' +
+          '</div>' +
+          '<span class="text-blue-600 font-bold">' +
+          escapeHtml(currency) +
+          ' ' +
+          escapeHtml(String(amount)) +
+          '</span>' +
+          '</div>' +
+          '</div>';
+      });
+    }
+    return html;
+  }
+
+  function setupExpenseInteractions() {
+    const btn = document.getElementById('exp-add');
     if (!btn) return;
 
-    btn.addEventListener("click", () => {
+    btn.addEventListener('click', function () {
       const payload = {
-        date: document.getElementById("exp-date").value,
-        category: document.getElementById("exp-category").value,
-        desc: document.getElementById("exp-desc").value,
-        amount: Number(document.getElementById("exp-amount").value),
-        currency: "CNY",
-        paid_by: document.getElementById("exp-paidby").value,
-        memo: ""
+        date: document.getElementById('exp-date').value,
+        category: document.getElementById('exp-category').value,
+        desc: document.getElementById('exp-desc').value,
+        amount: Number(document.getElementById('exp-amount').value),
+        currency: document.getElementById('exp-currency').value || 'CNY',
+        paid_by: 'self',
+        memo: '',
       };
 
-      google.script.run.addExpense(payload);
+      google.script.run
+        .withSuccessHandler(function () {
+          google.script.run
+            .withSuccessHandler(function (data) {
+              if (data && Array.isArray(data.expenses)) {
+                state.expenses = data.expenses;
+                render();
+              }
+            })
+            .getAllData();
+        })
+        .withFailureHandler(function (err) {
+          console.error('addExpenseItem failed', err);
+        })
+        .addExpenseItem(payload.desc, payload.amount);
 
-      state.expenses.push(payload);
+      state.expenses.push({
+        id: Date.now(),
+        date: payload.date,
+        title: payload.desc,
+        amount: payload.amount,
+        currency: payload.currency,
+        paid_by: payload.paid_by,
+        memo: '',
+      });
+
       render();
     });
   }
 
+  // =====================================================
+  // 工具函式
+  // =====================================================
 
-  /* -------------------------------------------------------
-      READY
-  --------------------------------------------------------*/
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initApp);
+  function escapeHtml(text) {
+    if (!text) return '';
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  // =====================================================
+  // READY
+  // =====================================================
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initApp);
   } else {
     initApp();
   }
-})(typeof globalThis !== "undefined" ? globalThis : this);
+})(typeof globalThis !== 'undefined' ? globalThis : this);
 </script>

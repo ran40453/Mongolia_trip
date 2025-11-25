@@ -1,217 +1,204 @@
-// Code.gs
-const SHEET_ID = '1fhEg8S-QYR-RYSd-fNAw-aDRuehahfAqUllRJdx1lVE'; // 你的試算表 ID
-const CONFIG = {
-  sheetNames: {
-    events: 'events',
-    landmarks: 'landmarks',
-    flights: 'flights',   // 你之後可以在同一份 Sheet 新增
-    packing: 'packing',   // 物品清單
-    expenses: 'expenses', // 花費紀錄
-  }
-};
-
-// 主入口：發 HTML
-function doGet(e) {
-  const tpl = HtmlService.createTemplateFromFile('index');
-  tpl.initialData = getInitialData();
-  return tpl.evaluate()
-    .setTitle('內蒙行程')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-}
-
-
-// include 用來把 css/js partials 插進 index.html
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
-// 一次把所有分頁資料丟給前端
-function getInitialData() {
+/**
+ * Web App 入口
+ * - 使用 Index.html 作為模板
+ * - 把 getAllData() 的結果塞進 template.initialData
+ */
+function doGet() {
+  const t = HtmlService.createTemplateFromFile('index'); // 注意大小寫要跟檔名一致
+
+  // 把所有資料一次塞進去，前端用 window.INITIAL_DATA 接
+  t.initialData = getAllData();
+
+  return t
+    .evaluate()
+    .setTitle('我的旅遊行程')
+    .addMetaTag(
+      'viewport',
+      'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no'
+    );
+}
+
+/* =========================================
+   資料讀取功能（照原生版邏輯，但一次回傳）
+   ========================================= */
+
+function getAllData() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // 1. events 分頁 (行程)
+  const eventSheet = ss.getSheetByName('events');
+  let events = [];
+  if (eventSheet) {
+    const rows = eventSheet.getDataRange().getDisplayValues();
+    // A=id, B=day_title, C=time, D=title, E=place, F=note, G=move_time, H=date_label
+    for (let i = 1; i < rows.length; i++) {
+      if (!rows[i][0]) continue; // 跳過空 ID
+      events.push({
+        id: rows[i][0],
+        day_title: rows[i][1],
+        time: rows[i][2],
+        title: rows[i][3],
+        place: rows[i][4],
+        note: rows[i][5],
+        move_time: rows[i][6],
+        date_label: rows[i][7],
+      });
+    }
+  }
+
+  // 2. packing 分頁 (行李清單)
+  const packSheet = ss.getSheetByName('packing');
+  let packing = [];
+  if (packSheet) {
+    const rows = packSheet.getDataRange().getDisplayValues();
+    // A=id, B=category, C=item, D=checked
+    for (let i = 1; i < rows.length; i++) {
+      if (!rows[i][0]) continue;
+      packing.push({
+        id: rows[i][0],
+        category: rows[i][1],
+        item: rows[i][2],
+        checked: rows[i][3] === 'TRUE',
+      });
+    }
+  }
+
+  // 3. expenses 分頁 (記帳)
+  const expSheet = ss.getSheetByName('expenses');
+  let expenses = [];
+  if (expSheet) {
+    const rows = expSheet.getDataRange().getDisplayValues();
+    // A=id, B=date, C=title, D=amount
+    for (let i = 1; i < rows.length; i++) {
+      if (!rows[i][0]) continue;
+      expenses.push({
+        id: rows[i][0],
+        date: rows[i][1],
+        title: rows[i][2],
+        amount: parseFloat(rows[i][3]) || 0,
+      });
+    }
+  }
+
+  // 4. flights 分頁 (航班)
+  const fltSheet = ss.getSheetByName('flights');
+  let flights = [];
+  if (fltSheet) {
+    const rowsF = fltSheet.getDataRange().getDisplayValues();
+    // A=id, B=date, C=segment, D=flight_no, E=time, F=note
+    for (let i = 1; i < rowsF.length; i++) {
+      if (!rowsF[i][0]) continue;
+      flights.push({
+        id: rowsF[i][0],
+        date: rowsF[i][1],
+        segment: rowsF[i][2],
+        flight_no: rowsF[i][3],
+        time: rowsF[i][4],
+        note: rowsF[i][5],
+      });
+    }
+  }
+
+  // 5. landmarks 分頁 (地標)
+  const lmSheet = ss.getSheetByName('landmarks');
+  let landmarks = [];
+  if (lmSheet) {
+    const rowsL = lmSheet.getDataRange().getDisplayValues();
+    // A=name, B=lat, C=type, D=lng, E=note
+    for (let i = 1; i < rowsL.length; i++) {
+      if (!rowsL[i][0]) continue;
+      landmarks.push({
+        id: i,                  // 用列號當 id 就好，前端只拿來辨識
+        name: rowsL[i][0],      // 地點名稱
+        lat: rowsL[i][1],       // 緯度
+        type: rowsL[i][2],      // 類型
+        lng: rowsL[i][3],       // 經度
+        note: rowsL[i][4],      // 備註
+      });
+    }
+  }
+
   return {
-    events: getEvents(),
-    landmarks: getLandmarks(),
-    flights: getFlights(),
-    packing: getPacking(),
-    expenses: getExpenses(),
+    events: events,
+    packing: packing,
+    expenses: expenses,
+    flights: flights,
+    landmarks: landmarks,
+    success: true,
   };
 }
 
-// 讀 events 表：每列都是一個行程節點
-function getEvents() {
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-  const sh = ss.getSheetByName(CONFIG.sheetNames.events);
-  if (!sh) return [];
+/* =========================================
+   行程編輯（跟原生版一致）
+   ========================================= */
 
-  const values = sh.getDataRange().getValues();
-  if (values.length < 2) return [];
+function saveEventData(id, title, time, place, note) {
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('events');
+    const data = sheet.getDataRange().getDisplayValues();
 
-  const header = values[0];
-  const rows = values.slice(1);
-
-  const idx = (name) => header.indexOf(name);
-
-  const res = rows.map((row, i) => ({
-    rowIndex: i + 2, // 真實 row，之後更新用
-    dayIndex: row[idx('day_index')],
-    date: row[idx('date')],
-    dateLabel: row[idx('date_label')],
-    dayTitle: row[idx('day_title')],
-    seq: row[idx('seq')],
-    time: row[idx('time')],
-    title: row[idx('title')],
-    place: row[idx('place')],
-    moveTime: row[idx('move_time')],
-    note: row[idx('note')],
-  }));
-
-  return res;
+    // 尋找對應 ID 的列
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][0]) === String(id)) {
+        // D=Title(Col 4), C=Time(Col 3), E=Place(Col 5), F=Note(Col 6)
+        sheet.getRange(i + 1, 4).setValue(title);
+        sheet.getRange(i + 1, 3).setValue(time);
+        sheet.getRange(i + 1, 5).setValue(place);
+        sheet.getRange(i + 1, 6).setValue(note);
+        return { success: true };
+      }
+    }
+    return { success: false, error: 'ID not found' };
+  } catch (e) {
+    return { success: false, error: e.toString() };
+  }
 }
 
-function getLandmarks() {
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-  const sh = ss.getSheetByName(CONFIG.sheetNames.landmarks);
-  if (!sh) return [];
+/* =========================================
+   行李清單勾選
+   ========================================= */
 
-  const values = sh.getDataRange().getValues();
-  if (values.length < 2) return [];
-
-  const header = values[0];
-  const rows = values.slice(1);
-  const idx = (name) => header.indexOf(name);
-
-  return rows.map((row, i) => ({
-    rowIndex: i + 2,
-    name: row[idx('名稱')],
-    type: row[idx('類型')],
-    lat: row[idx('緯度')],
-    lng: row[idx('經度')],
-    memo: row[idx('備註')],
-  }));
+function togglePackingStatus(id, checked) {
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('packing');
+    const data = sheet.getDataRange().getDisplayValues();
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][0]) === String(id)) {
+        // D=Checked (Col 4)
+        sheet.getRange(i + 1, 4).setValue(checked ? 'TRUE' : 'FALSE');
+        return { success: true };
+      }
+    }
+    return { success: false, error: 'ID not found' };
+  } catch (e) {
+    return { success: false, error: e.toString() };
+  }
 }
 
-// 航班：你可以在 Sheet 新增 flights 分頁，欄位例如：date, from, to, flight_no, time, note
-function getFlights() {
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-  const sh = ss.getSheetByName(CONFIG.sheetNames.flights);
-  if (!sh) return [];
-  const values = sh.getDataRange().getValues();
-  if (values.length < 2) return [];
-  const header = values[0];
-  const rows = values.slice(1);
-  const idx = (name) => header.indexOf(name);
+/* =========================================
+   新增記帳
+   ========================================= */
 
-  return rows.map((row, i) => ({
-    rowIndex: i + 2,
-    date: row[idx('date')],
-    segment: row[idx('segment')],   // ex: TPE → PEK
-    flightNo: row[idx('flight_no')],
-    time: row[idx('time')],         // ex: 18:45–22:20
-    note: row[idx('note')],
-  }));
-}
+function addExpenseItem(title, amount) {
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('expenses');
+    if (!sheet) return { success: false, error: 'Sheet not found' };
 
-// 物品清單：packing 表建議欄位：category, item, required(是/否), packed(是/否), memo
-function getPacking() {
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-  const sh = ss.getSheetByName(CONFIG.sheetNames.packing);
-  if (!sh) return [];
-  const values = sh.getDataRange().getValues();
-  if (values.length < 2) return [];
-  const header = values[0];
-  const rows = values.slice(1);
-  const idx = (name) => header.indexOf(name);
+    const id = new Date().getTime();
+    const date = Utilities.formatDate(
+      new Date(),
+      Session.getScriptTimeZone(),
+      'yyyy/MM/dd HH:mm'
+    );
 
-  return rows.map((row, i) => ({
-    rowIndex: i + 2,
-    category: row[idx('category')],
-    item: row[idx('item')],
-    required: row[idx('required')],
-    packed: row[idx('packed')],
-    memo: row[idx('memo')],
-  }));
-}
-
-// 花費：expenses 建議欄位：date, category, desc, amount, currency, paid_by, memo
-function getExpenses() {
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-  const sh = ss.getSheetByName(CONFIG.sheetNames.expenses);
-  if (!sh) return [];
-  const values = sh.getDataRange().getValues();
-  if (values.length < 2) return [];
-  const header = values[0];
-  const rows = values.slice(1);
-  const idx = (name) => header.indexOf(name);
-
-  return rows.map((row, i) => ({
-    rowIndex: i + 2,
-    date: row[idx('date')],
-    category: row[idx('category')],
-    desc: row[idx('desc')],
-    amount: row[idx('amount')],
-    currency: row[idx('currency')],
-    paidBy: row[idx('paid_by')],
-    memo: row[idx('memo')],
-  }));
-}
-
-/**
- * 更新單一行程節點（在手機上編輯）
- * data = { rowIndex, time, title, place, moveTime, note }
- */
-function updateEvent(data) {
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-  const sh = ss.getSheetByName(CONFIG.sheetNames.events);
-  if (!sh) throw new Error('events sheet not found');
-
-  const header = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
-
-  const colTime = header.indexOf('time') + 1;
-  const colTitle = header.indexOf('title') + 1;
-  const colPlace = header.indexOf('place') + 1;
-  const colMove = header.indexOf('move_time') + 1;
-  const colNote = header.indexOf('note') + 1;
-
-  const r = data.rowIndex;
-  if (r < 2) throw new Error('invalid row index');
-
-  if (data.time !== undefined) sh.getRange(r, colTime).setValue(data.time);
-  if (data.title !== undefined) sh.getRange(r, colTitle).setValue(data.title);
-  if (data.place !== undefined) sh.getRange(r, colPlace).setValue(data.place);
-  if (data.moveTime !== undefined) sh.getRange(r, colMove).setValue(data.moveTime);
-  if (data.note !== undefined) sh.getRange(r, colNote).setValue(data.note);
-
-  return true;
-}
-
-/**
- * 更新物品清單勾選狀態（packed）
- */
-function updatePackingItem(data) {
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-  const sh = ss.getSheetByName(CONFIG.sheetNames.packing);
-  if (!sh) throw new Error('packing sheet not found');
-
-  const header = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
-  const colPacked = header.indexOf('packed') + 1;
-  const r = data.rowIndex;
-  if (r < 2) throw new Error('invalid row index');
-
-  sh.getRange(r, colPacked).setValue(data.packed);
-  return true;
-}
-
-/**
- * 新增一筆花費
- */
-function addExpense(expense) {
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-  const sh = ss.getSheetByName(CONFIG.sheetNames.expenses);
-  if (!sh) throw new Error('expenses sheet not found');
-
-  const header = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
-  const cols = ['date', 'category', 'desc', 'amount', 'currency', 'paid_by', 'memo'];
-
-  const row = cols.map(col => expense[col] || '');
-  sh.appendRow(row);
-  return true;
+    // A=id, B=date, C=title, D=amount
+    sheet.appendRow([id, date, title, amount]);
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.toString() };
+  }
 }
